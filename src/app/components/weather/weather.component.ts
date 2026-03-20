@@ -1,9 +1,11 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { trigger, state, style, transition, animate } from '@angular/animations';
 import { WeatherService } from './../../service/weather.service';
 import { WeatherData } from '../../models/weather.model';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-weather',
@@ -26,45 +28,50 @@ import { WeatherData } from '../../models/weather.model';
     ])
   ]
 })
-export class WeatherComponent implements OnInit {
-  weatherData!: WeatherData | null;
-  city: string = '';
-  errorMessage: string = '';
+export class WeatherComponent implements OnInit, OnDestroy {
+  weatherData: WeatherData | null = null;
+  city = '';
+  errorMessage = '';
   isLoading = false;
-  private weatherService = inject(WeatherService);
+
+  private readonly weatherService = inject(WeatherService);
+  private readonly destroy$ = new Subject<void>();
 
   ngOnInit(): void {
-    this.errorMessage = '';
-    this.weatherService.weather$.subscribe(data => {
-      if (data) {
-        this.weatherData = data;
-        // this.isDay = data.current.is_day === 1; // API returns 1 for day, 0 for night
-      }
-    });
-    this.isLoading = false;
+    this.weatherService.weather$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((data) => {
+        this.weatherData = data ?? null;
+      });
   }
 
-  fetchWeather() {
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  fetchWeather(): void {
+    const city = this.city.trim();
+    if (!city) {
+      this.errorMessage = 'Please enter city';
+      this.weatherData = null;
+      return;
+    }
+
     this.errorMessage = '';
     this.isLoading = true;
-    if (this.city.trim() !== '') {
-      this.isLoading = true;
-      this.weatherService.getWeather(this.city).subscribe({
+
+    this.weatherService.getWeather(city)
+      .pipe(finalize(() => (this.isLoading = false)))
+      .subscribe({
         next: (data) => {
           this.weatherData = data;
-          this.isLoading =false;
         },
         error: (err) => {
-          console.error('Component Error:', err);
+          console.error('Component error fetching weather', err);
           this.errorMessage = 'City not found. Try again!';
           this.weatherData = null;
-          this.isLoading =false;
-        }
+        },
       });
-    }else{
-      this.errorMessage = 'Please enter city';
-      this.isLoading = false;
-      this.weatherData = null;
-    }
   }
 }
