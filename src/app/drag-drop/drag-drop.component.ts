@@ -1,13 +1,15 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 import { CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { FormsModule } from '@angular/forms';
 import { trigger, style, animate, transition } from '@angular/animations';
-import { ChangeDetectionStrategy } from '@angular/core';
+
+type Category = { title: string; tasks: string[]; taskInput: string };
 
 @Component({
   selector: 'app-drag-drop',
+  standalone: true,
   imports: [CommonModule, DragDropModule, FormsModule],
   templateUrl: './drag-drop.component.html',
   styleUrl: './drag-drop.component.css',
@@ -38,60 +40,56 @@ export class DragDropComponent {
   editingCategoryIndex: number | null = null;
   editingTaskIndex: number | null = null;
   editingTaskCategoryIndex: number | null = null;
-  errorMessage: string = '';
-  successMessage: string = '';
+  errorMessage = '';
+  successMessage = '';
+  readonly messageDelayMs = 3000;
 
-  categories: { title: string; tasks: string[]; taskInput?: string }[] = [];
+  categories: Category[] = [];
 
   constructor() {
     this.loadCategoriesFromLocalStorage();
   }
-  updateTask(value: string, i: number, j: number) {
-    this.categories[i].tasks[j] = value;
-  }
-  trackTask(index: number, task: string) {
-  return index; // Ensures Angular keeps track of existing tasks
-}
 
+  trackTask(index: number) {
+    return index;
+  }
 
   addCategory() {
     this.editingCategoryIndex = null;
-    if (!this.newCategoryTitle.trim()) {
-      this.errorMessage = 'category';
+    const title = this.newCategoryTitle.trim();
+    if (!title) {
+      this.setError('category');
       return;
     }
-    const duplicate = this.categories.some(
-      (category) => category.title.toLowerCase() === this.newCategoryTitle.trim().toLowerCase()
-  );
 
-  if (duplicate) {
-      this.errorMessage = 'categoryExist';
-      this.clearMessagesAfterDelay();
+    const duplicate = this.categories.some(
+      category => category.title.toLowerCase() === title.toLowerCase()
+    );
+
+    if (duplicate) {
+      this.setError('categoryExist');
       return;
-  }
-    this.categories.find(title=> this.newCategoryTitle);
-    this.categories.push({ title: this.newCategoryTitle.trim(), tasks: [], taskInput: '' });
+    }
+
+    this.categories.push({ title, tasks: [], taskInput: '' });
     this.newCategoryTitle = '';
-    this.errorMessage = '';
-    this.successMessage = 'Category added successfully!';
+    this.setSuccess('Category added successfully!');
     this.saveCategoriesToLocalStorage();
-    this.clearMessagesAfterDelay();
   }
 
   addTask(categoryIndex: number) {
     this.editingTaskIndex = null;
-    const taskInput = this.categories[categoryIndex].taskInput;
-    if (!taskInput?.trim()) {
-      this.errorMessage = `task-${categoryIndex}`;
+    const taskInput = this.categories[categoryIndex]?.taskInput?.trim();
+
+    if (!taskInput) {
+      this.setError(`task-${categoryIndex}`);
       return;
     }
 
-    this.categories[categoryIndex].tasks.push(taskInput.trim());
+    this.categories[categoryIndex].tasks.push(taskInput);
     this.categories[categoryIndex].taskInput = '';
-    this.errorMessage = '';
-    this.successMessage = 'Task added successfully!';
+    this.setSuccess('Task added successfully!');
     this.saveCategoriesToLocalStorage();
-    this.clearMessagesAfterDelay();
   }
 
   editCategory(index: number) {
@@ -100,114 +98,113 @@ export class DragDropComponent {
 
   saveCategory(index: number) {
     if (!this.categories[index].title.trim()) {
-      this.errorMessage = `category-edit-${index}`;
+      this.setError(`category-edit-${index}`);
       return;
     }
+
     this.editingCategoryIndex = null;
-    this.successMessage = 'Category updated successfully!';
+    this.setSuccess('Category updated successfully!');
     this.saveCategoriesToLocalStorage();
-    this.clearMessagesAfterDelay();
   }
-  moveTask(currentCategoryIndex: number, taskIndex: number, event: any) {
-    const targetCategoryIndex = Number(event.target.value);
-    if (targetCategoryIndex >= 0 && targetCategoryIndex !== currentCategoryIndex) {
-      // Move the task
-      const taskToMove = this.categories[currentCategoryIndex].tasks[taskIndex];
 
-      // Remove from the current category
-      this.categories[currentCategoryIndex].tasks.splice(taskIndex, 1);
-
-      // Add to the target category
-      this.categories[targetCategoryIndex].tasks.push(taskToMove);
-
-      // Save updates
-      this.saveCategoriesToLocalStorage();
+  moveTask(currentCategoryIndex: number, taskIndex: number, event: Event) {
+    const targetCategoryIndex = Number((event.target as HTMLSelectElement).value);
+    if (targetCategoryIndex < 0 || targetCategoryIndex === currentCategoryIndex) {
+      return;
     }
-  }
 
+    const taskToMove = this.categories[currentCategoryIndex].tasks.splice(taskIndex, 1)[0];
+    this.categories[targetCategoryIndex].tasks.push(taskToMove);
+    this.saveCategoriesToLocalStorage();
+  }
 
   editTask(categoryIndex: number, taskIndex: number) {
     this.editingTaskIndex = taskIndex;
     this.editingTaskCategoryIndex = categoryIndex;
   }
+
   saveTask(categoryIndex: number, taskIndex: number) {
     if (!this.categories[categoryIndex].tasks[taskIndex].trim()) {
-      this.errorMessage = `task-edit-${categoryIndex}-${taskIndex}`;
+      this.setError(`task-edit-${categoryIndex}-${taskIndex}`);
       return;
     }
+
     this.editingTaskIndex = null;
     this.editingTaskCategoryIndex = null;
-    this.successMessage = 'Task updated successfully!';
+    this.setSuccess('Task updated successfully!');
     this.saveCategoriesToLocalStorage();
-    this.clearMessagesAfterDelay();
   }
 
-  // Delete a task
   deleteTask(categoryIndex: number, taskIndex: number) {
     this.categories[categoryIndex].tasks.splice(taskIndex, 1);
-    this.successMessage = 'Task deleted successfully!';
+    this.setSuccess('Task deleted successfully!');
     this.saveCategoriesToLocalStorage();
-    this.clearMessagesAfterDelay();
   }
 
-  // Delete a category
   deleteCategory(index: number) {
     this.categories.splice(index, 1);
-    this.successMessage = 'Category deleted successfully!';
+    this.setSuccess('Category deleted successfully!');
     this.saveCategoriesToLocalStorage();
-    this.clearMessagesAfterDelay();
   }
 
-  // Drag and drop logic for tasks
-  dropTask(event: CdkDragDrop<string[]>, categoryIndex: number) {
+  dropTask(event: CdkDragDrop<string[]>) {
     if (event.previousContainer === event.container) {
       moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
     } else {
-      transferArrayItem(
-        event.previousContainer.data,
-        event.container.data,
-        event.previousIndex,
-        event.currentIndex
-      );
+      transferArrayItem(event.previousContainer.data, event.container.data, event.previousIndex, event.currentIndex);
     }
     this.saveCategoriesToLocalStorage();
   }
+
   saveCategoriesToLocalStorage() {
     localStorage.setItem('categories', JSON.stringify(this.categories));
   }
+
   loadCategoriesFromLocalStorage() {
-    try {
-      const storedCategories = localStorage.getItem('categories');
-      console.log("Stored Categories (Raw):", storedCategories);
-
-      this.categories = storedCategories ? JSON.parse(storedCategories) : [];
-
-      if (!Array.isArray(this.categories) || this.categories.length === 0) {
-        this.initializeDefaultCategories();
+    const stored = localStorage.getItem('categories');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.every(item => item && typeof item.title === 'string')) {
+          this.categories = parsed;
+          return;
+        }
+      } catch {
+        // fall back to defaults
       }
-    } catch (error) {
-      console.error("Error parsing categories:", error);
-      this.initializeDefaultCategories();
     }
+    this.initializeDefaultCategories();
   }
-
-
 
   private initializeDefaultCategories() {
     this.categories = [
       { title: 'Pending', tasks: [], taskInput: '' },
       { title: 'In Progress', tasks: [], taskInput: '' },
       { title: 'Completed', tasks: [], taskInput: '' },
-      { title: 'Verified', tasks: [], taskInput: '' }
+      { title: 'Verified', tasks: [], taskInput: '' },
     ];
     this.saveCategoriesToLocalStorage();
   }
-  clearMessagesAfterDelay() {
+
+  private setError(message: string) {
+    this.errorMessage = message;
+    this.successMessage = '';
+    this.clearMessagesAfterDelay();
+  }
+
+  private setSuccess(message: string) {
+    this.successMessage = message;
+    this.errorMessage = '';
+    this.clearMessagesAfterDelay();
+  }
+
+  private clearMessagesAfterDelay() {
     setTimeout(() => {
       this.successMessage = '';
       this.errorMessage = '';
-    }, 3000);
+    }, this.messageDelayMs);
   }
+
   getConnectedLists(): string[] {
     return this.categories.map((_, index) => `category-${index}`);
   }
