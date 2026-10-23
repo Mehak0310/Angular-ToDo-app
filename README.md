@@ -1,5 +1,13 @@
- 
 # Angular 19 ToDo App ✅  
+
+## Project at a glance
+
+An **Angular 19 and TypeScript** demo featuring standalone components, responsive task management, service-worker-based offline support, a weather integration and a Hangman mini-game. [View the demo](https://abubakkar-todo-app.netlify.app/).
+
+**Technologies:** Angular · TypeScript · RxJS · standalone components · responsive UI.
+
+---
+
 🚀 Live Demo: [abubakkar-todo-app.netlify.app](https://abubakkar-todo-app.netlify.app/)  
 
 This is a **standalone Angular 19** To-Do application where users can enter and manage their tasks efficiently. The app is designed to work **offline**, includes **Angular Service Workers**, and also features a **Weather API** and a fun **Hangman game**. The UI is fully **responsive** for a smooth experience across devices.  
@@ -65,4 +73,3 @@ Angular CLI does not include an E2E testing framework by default, so you can cho
 ## 📚 Additional Resources  
 For more information on Angular CLI, visit the official [Angular CLI Documentation](https://angular.dev/tools/cli).
  
-optimize above project description for search results and also add tags
